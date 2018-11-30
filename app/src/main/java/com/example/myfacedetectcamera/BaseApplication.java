@@ -1,6 +1,7 @@
 package com.example.myfacedetectcamera;
 
 import android.app.Application;
+import android.content.Context;
 
 import com.squareup.leakcanary.LeakCanary;
 import com.zhy.http.okhttp.OkHttpUtils;
@@ -11,9 +12,11 @@ import okhttp3.OkHttpClient;
 
 public class BaseApplication extends Application {
 
+    private static Context context;
     @Override
     public void onCreate() {
         super.onCreate();
+        context = this;
         if (LeakCanary.isInAnalyzerProcess(this)) {
             // This process is dedicated to LeakCanary for heap analysis.
             // You should not init your app in this process.
@@ -29,5 +32,9 @@ public class BaseApplication extends Application {
                 .build();
 
         OkHttpUtils.initClient(okHttpClient);
+    }
+
+    public static Context getContext() {
+        return context;
     }
 }

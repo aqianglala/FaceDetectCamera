@@ -37,6 +37,7 @@ public class TcpSocketHelper {
     private String mIpAddr = "192.168.3.181";
     private int mPort = 10011;
     private boolean isConneting;
+    private int token;
 
     // 每次识别接口返回后才可以继续发送图片
     private LinkedList<Bitmap> mBitmaps = new LinkedList<>();
@@ -90,6 +91,7 @@ public class TcpSocketHelper {
     public void closeConnect() {
         if (socket != null) {
             try {
+                token = 0;
                 socket.close();
                 socket = null;
             } catch (IOException e) {
@@ -195,7 +197,11 @@ public class TcpSocketHelper {
                     out.writeShort(NettyProtoType.NETTY_PROTO_JSON_VALUE);
                     out.writeInt(1);//协议
                     out.writeInt(NettyClientCmd.COMMOM_AUTHENTICATION);
-                    out.writeInt(new Random().nextInt());
+//                    out.writeInt(new Random().nextInt());
+                    if (token >= Integer.MAX_VALUE){
+                        token = 0;
+                    }
+                    out.writeInt(token++);
                     out.writeInt(bodyLength);
                     out.write(ret.getBytes());
                     out.flush();
@@ -254,7 +260,11 @@ public class TcpSocketHelper {
                     out.writeShort(NettyProtoType.NETTY_PROTO_STREAM_VALUE);
                     out.writeInt(1);//协议
                     out.writeInt(NettyClientCmd.EGO_PUSH_IMAGES_STREAM);
-                    out.writeInt(new Random().nextInt());
+//                    out.writeInt(new Random().nextInt());
+                    if (token >= Integer.MAX_VALUE){
+                        token = 0;
+                    }
+                    out.writeInt(token++);
                     out.writeInt(bodyLength);
                     out.write(bytes);
                     out.flush();

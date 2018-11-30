@@ -1,7 +1,6 @@
 package com.example.myfacedetectcamera.activities;
 
 import android.Manifest;
-import android.app.AlertDialog;
 import android.content.Context;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
@@ -20,9 +19,6 @@ import android.support.v4.app.ActivityCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.text.TextUtils;
 import android.util.Log;
-import android.view.Menu;
-import android.view.MenuInflater;
-import android.view.MenuItem;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import android.view.ViewGroup;
@@ -32,6 +28,7 @@ import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.example.myfacedetectcamera.BaseApplication;
 import com.example.myfacedetectcamera.OnReceivedListener;
 import com.example.myfacedetectcamera.R;
 import com.example.myfacedetectcamera.TcpSocketHelper;
@@ -39,8 +36,14 @@ import com.example.myfacedetectcamera.activities.ui.FaceOverlayView;
 import com.example.myfacedetectcamera.model.DataModel;
 import com.example.myfacedetectcamera.model.FaceResult;
 import com.example.myfacedetectcamera.net.Net;
+import com.example.myfacedetectcamera.net.OnBindAuthListener;
+import com.example.myfacedetectcamera.net.OnSendImageListener;
+import com.example.myfacedetectcamera.net.OnSocketConnectListener;
+import com.example.myfacedetectcamera.net.SocketManager;
+import com.example.myfacedetectcamera.net.SocketManagerNew;
 import com.example.myfacedetectcamera.utils.CameraErrorCallback;
 import com.example.myfacedetectcamera.utils.ImageUtils;
+import com.example.myfacedetectcamera.utils.NetworkUtil;
 import com.example.myfacedetectcamera.utils.Util;
 
 import java.lang.ref.WeakReference;
@@ -52,23 +55,13 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 
-/**
- * Created by Nguyen on 5/20/2016.
- */
-
-/**
- * FACE DETECT EVERY FRAME WIL CONVERT TO RGB BITMAP SO THIS HAS LOWER PERFORMANCE THAN GRAY BITMAP
- * COMPARE FPS (DETECT FRAME PER SECOND) OF 2 METHODs FOR MORE DETAIL
- */
-
-
-public final class FaceDetectRGB4Activity extends AppCompatActivity implements SurfaceHolder.Callback,
+public final class FaceDetectRGB5Activity extends AppCompatActivity implements SurfaceHolder.Callback,
         Camera.PreviewCallback, TextToSpeech.OnInitListener {
 
     // Number of Cameras in device.
     private int numberOfCameras;
 
-    public static final String TAG = FaceDetectRGB4Activity.class.getSimpleName();
+    public static final String TAG = FaceDetectRGB5Activity.class.getSimpleName();
 
     private Camera mCamera;
     private int cameraId = 0;
@@ -127,8 +120,9 @@ public final class FaceDetectRGB4Activity extends AppCompatActivity implements S
     private TextView tv_user_name;
     private TextView tv_log;
     private ScrollView scrollView;
-    private boolean login;// 人证后才能发图片
-    private MyReceiveListener mReceiveListener;
+    private boolean login;// 认证后才能发图片
+    private StringBuilder builder = new StringBuilder();
+    private SocketManagerNew mSocketManager;
     //==============================================================================================
     // Activity Methods
     //==============================================================================================
@@ -179,27 +173,19 @@ public final class FaceDetectRGB4Activity extends AppCompatActivity implements S
         if (icicle != null)
             cameraId = icicle.getInt(BUNDLE_CAMERA_ID, 0);
 
-//        mNet = new Net();
-//        // 连接服务器
-//        mExecutor.execute(new Runnable() {
-//            @Override
-//            public void run() {
-//                if (mNet.init()) {
-//                    mNet.bingAuth();
-//                }
-//            }
-//        });
+        // listener
+        MyConnectListener onConnectListener = new MyConnectListener(this);
+        MySendImageListener onSendImageListener = new MySendImageListener(this);
+        MyOnBindAuthListener onBindAuthListener = new MyOnBindAuthListener(this);
+        // 语音
         textToSpeech = new TextToSpeech(this, this);
-        mExecutor.execute(new Runnable() {
-            @Override
-            public void run() {
-                mSocketHelper = TcpSocketHelper.getImpl();
-                mSocketHelper.startConnect();
-                mReceiveListener = new MyReceiveListener(FaceDetectRGB4Activity.this);
-                mSocketHelper.setReceivedListener(mReceiveListener);
-                mSocketHelper.bingAuth();
-            }
-        });
+        // socket
+        mSocketManager = new SocketManagerNew();
+        mSocketManager.init();
+        mSocketManager.setOnSocketConnectListener(onConnectListener);
+        mSocketManager.setOnBindAuthListener(onBindAuthListener);
+        mSocketManager.setOnSendImageListener(onSendImageListener);
+        mSocketManager.startConnect();
     }
 
     private void requestCameraPermission(final int RC_HANDLE_CAMERA_PERM) {
@@ -246,52 +232,12 @@ public final class FaceDetectRGB4Activity extends AppCompatActivity implements S
         holder.setFormat(ImageFormat.NV21);
     }
 
-
-//    @Override
-//    public boolean onCreateOptionsMenu(Menu menu) {
-//        MenuInflater inflater = getMenuInflater();
-//        inflater.inflate(R.menu.menu_camera, menu);
-//
-//        return true;
-//    }
-
-    @Override
-    public boolean onOptionsItemSelected(MenuItem item) {
-
-        switch (item.getItemId()) {
-            case android.R.id.home:
-                super.onBackPressed();
-                return true;
-
-            case R.id.switchCam:
-
-                if (numberOfCameras == 1) {
-                    AlertDialog.Builder builder = new AlertDialog.Builder(this);
-                    builder.setTitle("Switch Camera").setMessage("Your device have one camera").setNeutralButton("Close", null);
-                    AlertDialog alert = builder.create();
-                    alert.show();
-                    return true;
-                }
-
-                cameraId = (cameraId + 1) % numberOfCameras;
-                recreate();
-
-                return true;
-
-
-            default:
-                return super.onOptionsItemSelected(item);
-        }
-    }
-
     /**
      * Restarts the camera.
      */
     @Override
     protected void onResume() {
         super.onResume();
-
-        Log.i(TAG, "onResume");
         startPreview();
     }
 
@@ -301,7 +247,6 @@ public final class FaceDetectRGB4Activity extends AppCompatActivity implements S
     @Override
     protected void onPause() {
         super.onPause();
-        Log.i(TAG, "onPause");
         if (mCamera != null) {
             mCamera.stopPreview();
         }
@@ -313,18 +258,13 @@ public final class FaceDetectRGB4Activity extends AppCompatActivity implements S
      */
     @Override
     protected void onDestroy() {
-        // 退出时关闭流并关闭socket
-//        if (mNet != null) {
-//            mNet.deinit();
-//        }
-        mSocketHelper.closeConnect();
-        if (textToSpeech != null){
+        super.onDestroy();
+        if (textToSpeech != null) {
             textToSpeech.stop(); // 不管是否正在朗读TTS都被打断
             textToSpeech.shutdown(); // 关闭，释放资源
         }
-        super.onDestroy();
+        mSocketManager.quit();
     }
-
 
     @Override
     protected void onSaveInstanceState(Bundle outState) {
@@ -337,14 +277,12 @@ public final class FaceDetectRGB4Activity extends AppCompatActivity implements S
         //Find the total number of cameras available
         numberOfCameras = Camera.getNumberOfCameras();
         Camera.CameraInfo cameraInfo = new Camera.CameraInfo();
-        int numberOfCameras = Camera.getNumberOfCameras();
         for (int i = 0; i < Camera.getNumberOfCameras(); i++) {
             Camera.getCameraInfo(i, cameraInfo);
             if (cameraInfo.facing == Camera.CameraInfo.CAMERA_FACING_FRONT) {
                 if (cameraId == 0) cameraId = i;
             }
         }
-        Log.e(TAG, "摄像头数量：" + numberOfCameras + "id: " +cameraId);
 
         mCamera = Camera.open(cameraId);
 
@@ -392,7 +330,7 @@ public final class FaceDetectRGB4Activity extends AppCompatActivity implements S
 
     private void setDisplayOrientation() {
         // Now set the display orientation:
-        mDisplayRotation = Util.getDisplayRotation(FaceDetectRGB4Activity.this);
+        mDisplayRotation = Util.getDisplayRotation(FaceDetectRGB5Activity.this);
         mDisplayOrientation = Util.getDisplayOrientation(mDisplayRotation, cameraId);
 
         mCamera.setDisplayOrientation(mDisplayOrientation);
@@ -464,7 +402,6 @@ public final class FaceDetectRGB4Activity extends AppCompatActivity implements S
         }
     }
 
-
     @Override
     public void surfaceDestroyed(SurfaceHolder surfaceHolder) {
         if (mCamera != null) {
@@ -475,11 +412,9 @@ public final class FaceDetectRGB4Activity extends AppCompatActivity implements S
         }
     }
 
-
     @Override
     public void onPreviewFrame(byte[] _data, Camera _camera) {
 //        if (!isThreadWorking) {
-        if (!login) return;
         if (counter == 0)
             start = System.currentTimeMillis();
 
@@ -502,10 +437,9 @@ public final class FaceDetectRGB4Activity extends AppCompatActivity implements S
             int result = textToSpeech.setLanguage(Locale.CHINA);
             if (result == TextToSpeech.LANG_MISSING_DATA
                     || result == TextToSpeech.LANG_NOT_SUPPORTED) {
-                Toast.makeText(this, "数据丢失或不支持", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, "语音数据丢失或不支持", Toast.LENGTH_SHORT).show();
             } else {
                 isTTSInit = true;
-                textToSpeech.speak("可以说话吗", TextToSpeech.QUEUE_FLUSH, null);
             }
         }
     }
@@ -518,9 +452,9 @@ public final class FaceDetectRGB4Activity extends AppCompatActivity implements S
         private byte[] data = null;
         private Bitmap faceCroped;
 
-        private WeakReference<FaceDetectRGB4Activity> mThreadActivityRef;
+        private WeakReference<FaceDetectRGB5Activity> mThreadActivityRef;
 
-        public FaceDetectRunnable(Handler handler, FaceDetectRGB4Activity activity) {
+        FaceDetectRunnable(Handler handler, FaceDetectRGB5Activity activity) {
             this.handler = handler;
             mThreadActivityRef = new WeakReference<>(activity);
         }
@@ -530,7 +464,7 @@ public final class FaceDetectRGB4Activity extends AppCompatActivity implements S
         }
 
         public void run() {
-            final FaceDetectRGB4Activity activity = mThreadActivityRef.get();
+            final FaceDetectRGB5Activity activity = mThreadActivityRef.get();
             if (activity == null) return;
 //            Log.i("FaceDetectThread", "running");
             long start1 = System.currentTimeMillis();
@@ -622,7 +556,15 @@ public final class FaceDetectRGB4Activity extends AppCompatActivity implements S
                     if (faceCroped != null) {
                         // 将图片发送到服务端
 //                        mNet.sendImage(faceCroped);
-                        activity.mSocketHelper.sendImage(faceCroped);
+//                        activity.mSocketHelper.sendImage(faceCroped);
+                        if (NetworkUtil.isNetworkAvailable(BaseApplication.getContext())) {
+                            activity.runOnUiThread(new Runnable() {
+                                @Override
+                                public void run() {
+                                    activity.mSocketManager.sendImage(faceCroped);
+                                }
+                            });
+                        }
                         handler.post(new Runnable() {
                             public void run() {
                                 activity.iv_face.setImageBitmap(faceCroped);
@@ -676,38 +618,105 @@ public final class FaceDetectRGB4Activity extends AppCompatActivity implements S
 
     }
 
-    private static class MyReceiveListener implements OnReceivedListener {
+    private static class MyConnectListener implements OnSocketConnectListener {
 
-        private final StringBuilder builder;
-        private WeakReference<FaceDetectRGB4Activity> mActivityRef;
+        private WeakReference<FaceDetectRGB5Activity> mActivityRef;
 
-        MyReceiveListener(FaceDetectRGB4Activity activity) {
-            builder = new StringBuilder();
+        MyConnectListener(FaceDetectRGB5Activity activity) {
             mActivityRef = new WeakReference<>(activity);
         }
 
         @Override
-        public void onReceived(String data) {
-
+        public void onSocketConnected() {
+//            final FaceDetectRGB5Activity activity = mActivityRef.get();
+//            if (activity != null && !activity.login) {
+//                mSocketManager.bindAuth();
+//            }
         }
 
         @Override
-        public void onLoginSuccess() {
-            final FaceDetectRGB4Activity activity = mActivityRef.get();
-            if (activity != null){
+        public void onSocketDisconnected(final String msg) {
+            final FaceDetectRGB5Activity activity = mActivityRef.get();
+            if (activity != null) {
+                activity.runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        activity.appendText("连接失败！" + msg);
+                    }
+                });
+            }
+        }
+    }
+
+    private static class MyOnBindAuthListener implements OnBindAuthListener {
+
+        private WeakReference<FaceDetectRGB5Activity> mActivityRef;
+
+        public MyOnBindAuthListener(FaceDetectRGB5Activity activity) {
+            this.mActivityRef = new WeakReference<>(activity);
+        }
+
+        @Override
+        public void onBindSuccess() {
+            final FaceDetectRGB5Activity activity = mActivityRef.get();
+            if (activity != null) {
+                Log.e(TAG, "认证成功");
                 activity.login = true;
+                activity.runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        activity.appendText("认证成功！");
+                    }
+                });
             }
         }
 
         @Override
-        public void onSendImageSuccess(final DataModel data) {
-            final FaceDetectRGB4Activity activity = mActivityRef.get();
-            if (activity != null){
+        public void onBindFail(final String msg) {
+            final FaceDetectRGB5Activity activity = mActivityRef.get();
+            if (activity != null) {
+                Log.e(TAG, "认证失败");
+                activity.login = false;
                 activity.runOnUiThread(new Runnable() {
                     @Override
                     public void run() {
-                        String userVoice = data.getUserVoice();
-                        String userName = data.getUserName();
+                        activity.appendText("认证失败！" + msg);
+                    }
+                });
+            }
+        }
+    }
+
+    private static class MySendImageListener implements OnSendImageListener {
+
+        private WeakReference<FaceDetectRGB5Activity> mActivityRef;
+
+        MySendImageListener(FaceDetectRGB5Activity activity) {
+            mActivityRef = new WeakReference<>(activity);
+        }
+
+        @Override
+        public void onRecognizeSuccess(final DataModel data) {
+            final FaceDetectRGB5Activity activity = mActivityRef.get();
+            if (activity != null) {
+                activity.runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        activity.recognizeSuccess(data);
+                    }
+                });
+            }
+        }
+
+        @Override
+        public void onRecognizeFail(String msg) {
+
+        }
+    }
+
+    private void recognizeSuccess(DataModel data) {
+        String userVoice = data.getUserVoice();
+        String userName = data.getUserName();
 //                    if (isTTSInit) {
 //                        if (!TextUtils.isEmpty(userVoice)) {
 //                            textToSpeech.speak(userVoice, TextToSpeech.QUEUE_FLUSH, null);
@@ -718,17 +727,16 @@ public final class FaceDetectRGB4Activity extends AppCompatActivity implements S
 //                        tv_user_voice.setText(TextUtils.isEmpty(userVoice) ? "" : userVoice);
 //                        tv_user_name.setText(TextUtils.isEmpty(userName) ? "" : userName);
 //                    }
-                        if (!TextUtils.isEmpty(userName)){
-                            SimpleDateFormat format = new SimpleDateFormat("HH:mm:ss:SSS");
-                            builder.append(userName + " " + format.format(new Date()));
-                            builder.append(System.getProperty("line.separator"));
-                            activity.tv_log.setText(builder.toString());
-                            activity.scrollView.fullScroll(ScrollView.FOCUS_DOWN);
-                        }
-                    }
-                });
-            }
+        if (!TextUtils.isEmpty(userName)) {
+            appendText(userName + " " + Util.formatCurrentTime());
         }
+    }
+
+    private void appendText(String text) {
+        builder.append(text);
+        builder.append(System.getProperty("line.separator"));
+        tv_log.setText(builder.toString());
+        scrollView.fullScroll(ScrollView.FOCUS_DOWN);
     }
 
 }

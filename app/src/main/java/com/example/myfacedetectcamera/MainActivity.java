@@ -6,6 +6,7 @@ import android.os.Bundle;
 import android.view.View;
 
 import com.example.myfacedetectcamera.activities.FaceDetectRGB4Activity;
+import com.example.myfacedetectcamera.activities.FaceDetectRGB5Activity;
 import com.example.myfacedetectcamera.activities.RegisterActivity;
 
 public class MainActivity extends AppCompatActivity {
@@ -19,6 +20,13 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onClick(View v) {
                 Intent intent = new Intent(MainActivity.this, FaceDetectRGB4Activity.class);
+                startActivity(intent);
+            }
+        });
+        findViewById(R.id.btn_3).setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                Intent intent = new Intent(MainActivity.this, FaceDetectRGB5Activity.class);
                 startActivity(intent);
             }
         });

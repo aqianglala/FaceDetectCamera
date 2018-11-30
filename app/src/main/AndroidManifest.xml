@@ -10,6 +10,7 @@
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
 
     <application
         android:allowBackup="true"
@@ -29,6 +30,8 @@
         <activity android:name=".activities.FaceDetectActivity"
             android:screenOrientation="fullSensor"/>
         <activity android:name=".activities.FaceDetectRGB4Activity"
+            android:screenOrientation="fullSensor"/>
+        <activity android:name=".activities.FaceDetectRGB5Activity"
             android:screenOrientation="fullSensor"/>
         <activity android:name=".activities.RegisterActivity"
             android:screenOrientation="fullSensor"/>

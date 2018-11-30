@@ -12,8 +12,11 @@ import android.view.OrientationEventListener;
 import android.view.Surface;
 
 import java.net.NetworkInterface;
+import java.text.SimpleDateFormat;
 import java.util.Collections;
+import java.util.Date;
 import java.util.List;
+import java.util.Locale;
 
 /**
  * Created by Nguyen on 5/20/2016.
@@ -168,6 +171,15 @@ public class Util {
             ex.printStackTrace();
         }
         return "";
+    }
+
+    /**
+     * 格式化时间
+     * @return HH:mm:ss:SSS
+     */
+    public static String formatCurrentTime(){
+        SimpleDateFormat format = new SimpleDateFormat("HH:mm:ss:SSS", Locale.CHINESE);
+        return format.format(new Date());
     }
 
 }
