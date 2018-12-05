@@ -572,12 +572,12 @@ public final class FaceDetectRGB4Activity extends AppCompatActivity implements S
             Camera.CameraInfo info = new Camera.CameraInfo();
             Camera.getCameraInfo(activity.cameraId, info);
             int rotate = activity.mDisplayOrientation;
-            if (info.facing == Camera.CameraInfo.CAMERA_FACING_FRONT && activity.mDisplayRotation % 180 == 0) {
-                if (rotate + 180 > 360) {
-                    rotate = rotate - 180;
-                } else
-                    rotate = rotate + 180;
-            }
+//            if (info.facing == Camera.CameraInfo.CAMERA_FACING_FRONT && activity.mDisplayRotation % 180 == 0) {
+//                if (rotate + 180 > 360) {
+//                    rotate = rotate - 180;
+//                } else
+//                    rotate = rotate + 180;
+//            }
 
             switch (rotate) {
                 case 90:

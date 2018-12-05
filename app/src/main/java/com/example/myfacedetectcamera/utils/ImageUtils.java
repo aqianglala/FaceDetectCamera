@@ -117,6 +117,9 @@ public class ImageUtils {
 
 
     public static Bitmap cropBitmap(Bitmap bitmap, Rect rect) {
+        if (bitmap == null || rect == null || rect .width() <= 0 || rect.height() <= 0){
+            return null;
+        }
         int w = rect.right - rect.left;
         int h = rect.bottom - rect.top;
         Bitmap ret = Bitmap.createBitmap(w, h, bitmap.getConfig());
@@ -164,5 +167,55 @@ public class ImageUtils {
 
         bmp = ImageUtils.cropBitmap(bmp, rect);
         return bmp;
+    }
+
+    public static Bitmap cropFaceNew(FaceResult face, Bitmap bitmap, int rotate) {
+        Bitmap bmp;
+
+        float eyesDis = face.eyesDistance();
+        PointF mid = new PointF();
+        face.getMidPoint(mid);
+
+        Rect rect = new Rect(
+                (int) (mid.x - eyesDis * 1.20f),
+                (int) (mid.y - eyesDis * 1.40f),
+                (int) (mid.x + eyesDis * 1.20f),
+                (int) (mid.y + eyesDis * 1.85f));
+
+        Bitmap.Config config = Bitmap.Config.RGB_565;
+        if (bitmap.getConfig() != null) config = bitmap.getConfig();
+        bmp = bitmap.copy(config, true);
+
+        switch (rotate) {
+            case 90:
+                bmp = ImageUtils.rotate(bmp, 90);
+                break;
+            case 180:
+                bmp = ImageUtils.rotate(bmp, 180);
+                break;
+            case 270:
+                bmp = ImageUtils.rotate(bmp, 270);
+                break;
+        }
+        bmp = ImageUtils.cropBitmap(bmp, rect);
+        bmp = scaleBitmap(bmp, rect);
+        return bmp;
+    }
+
+    private static Bitmap scaleBitmap(Bitmap bitmap, Rect rect) {
+        if (bitmap == null || rect == null || rect .width() <= 0 || rect.height() <= 0){
+            return null;
+        }
+        int width = rect.width();
+        int height = rect.height();
+        int max = Math.max(width, height);
+        float ratio;
+        if (max > 256){
+            ratio = max / 256f;
+            width = (int) (width / ratio);
+            height = (int) (height / ratio);
+            bitmap = Bitmap.createScaledBitmap(bitmap, width, height, false);
+        }
+        return bitmap;
     }
 }
