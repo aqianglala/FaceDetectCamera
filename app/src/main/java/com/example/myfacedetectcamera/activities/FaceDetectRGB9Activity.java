@@ -1,7 +1,6 @@
 package com.example.myfacedetectcamera.activities;
 
 import android.Manifest;
-import android.app.Activity;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
@@ -26,6 +25,7 @@ import android.renderscript.RenderScript;
 import android.renderscript.ScriptIntrinsicYuvToRGB;
 import android.renderscript.Type;
 import android.speech.tts.TextToSpeech;
+import android.support.annotation.NonNull;
 import android.support.v4.app.ActivityCompat;
 import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
@@ -43,7 +43,6 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import com.example.myfacedetectcamera.BaseApplication;
-import com.example.myfacedetectcamera.MainActivity;
 import com.example.myfacedetectcamera.R;
 import com.example.myfacedetectcamera.model.DataModel;
 import com.example.myfacedetectcamera.model.FaceResult;
@@ -72,42 +71,36 @@ import okhttp3.Call;
 import okhttp3.Request;
 
 
-public final class FaceDetectRGB8Activity extends AppCompatActivity implements SurfaceHolder.Callback,
+public final class FaceDetectRGB9Activity extends AppCompatActivity implements SurfaceHolder.Callback,
         Camera.PreviewCallback, TextToSpeech.OnInitListener {
 
-    public static final String TAG = FaceDetectRGB8Activity.class.getSimpleName();
-
+    public static final String TAG = FaceDetectRGB9Activity.class.getSimpleName();
+    private Context mContext;
+    private long mainThreadId;
+    // camera
     private Camera mCamera;
+    private static final int MAX_FACE = 1;
     private static int cameraId = 0;
     private static int mDisplayOrientation;
 
     private static int previewWidth;
     private static int previewHeight;
-
-    // The surface view for the camera data
-    private SurfaceView mView;
-
-    // Log all errors:
-    private final CameraErrorCallback mErrorCallback = new CameraErrorCallback();
-
-
-    private static final int MAX_FACE = 1;
-    //    private boolean isThreadWorking = false;
-    private MyHandler handler;
     private static int prevSettingWidth;
-    private static int prevSettingHeight;
+
     private android.media.FaceDetector fdet;
+
+    private String BUNDLE_CAMERA_ID = "camera";
+    private final CameraErrorCallback mErrorCallback = new CameraErrorCallback();
 
     private FaceResult faces[];
     private int Id = 0;
+    // The surface view for the camera data
+    private SurfaceView mView;
 
-    private String BUNDLE_CAMERA_ID = "camera";
-
-    private ImageView iv_face;
-
+    //    private boolean isThreadWorking = false;
+    private MyHandler handler;
     private ExecutorService mExecutor = Executors.newCachedThreadPool();
 
-    private Context mContext;
     // 图片格式转换
     private RenderScript rs;
     private ScriptIntrinsicYuvToRGB yuvToRgbIntrinsic;
@@ -119,16 +112,23 @@ public final class FaceDetectRGB8Activity extends AppCompatActivity implements S
     private static String[] PERMISSIONS_STORAGE = {
             "android.permission.READ_EXTERNAL_STORAGE",
             "android.permission.WRITE_EXTERNAL_STORAGE"};
-
-    private TextToSpeech textToSpeech; // TTS对象
+    // 语音
+    private TextToSpeech textToSpeech;
     private boolean isTTSInit;
+    // view
     private TextView tv_log;
+    private ImageView iv_face;
     private ScrollView scrollView;
+
     private StringBuilder builder = new StringBuilder();
     private SocketManagerNew mSocketManager;
     private static int mDisplayRotation;
+    // 注册
     private CountDownTimer mCountDownTimer;
-
+    private boolean isCounting;
+    private boolean isRegistering;
+    private Bitmap faceBitmap;
+    private Object mTag = new Object();
     //==============================================================================================
     // Activity Methods
     //==============================================================================================
@@ -140,59 +140,51 @@ public final class FaceDetectRGB8Activity extends AppCompatActivity implements S
     public void onCreate(Bundle icicle) {
         super.onCreate(icicle);
         Log.e(TAG, "lifecycle: onCreate");
-//        BaseApplication application = (BaseApplication)getApplication();
-//        application.addActivity(this);
 
-        setContentView(R.layout.activity_camera_viewer8);
-        mContext = this;
-        // 图片格式转换
-        rs = RenderScript.create(this);
-        yuvToRgbIntrinsic = ScriptIntrinsicYuvToRGB.create(rs, Element.U8_4(rs));
-
-        mView = findViewById(R.id.surfaceview);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        setContentView(R.layout.activity_camera_viewer9);
 
-        iv_face = findViewById(R.id.iv_face);
+        initView();
+        initListener();
+        initData(icicle);
+    }
 
+    private void initData(Bundle icicle) {
+        mContext = this;
+        mainThreadId = android.os.Process.myTid();
         handler = new MyHandler(this);
         faces = new FaceResult[MAX_FACE];
         for (int i = 0; i < MAX_FACE; i++) {
             faces[i] = new FaceResult();
         }
-
-        tv_log = findViewById(R.id.tv_log);
-        scrollView = findViewById(R.id.scrollView);
-
-        getSupportActionBar().setDisplayShowTitleEnabled(true);
-        getSupportActionBar().setHomeButtonEnabled(true);
-        getSupportActionBar().setDisplayHomeAsUpEnabled(true);
-        getSupportActionBar().setTitle("Face Detect RGB");
-
-        if (icicle != null)
-            cameraId = icicle.getInt(BUNDLE_CAMERA_ID, 0);
-
-        // listener
-        MyConnectListener onConnectListener = new MyConnectListener(this);
-        MySendImageListener onSendImageListener = new MySendImageListener(this);
-        MyOnBindAuthListener onBindAuthListener = new MyOnBindAuthListener(this);
+        // 图片格式转换
+        rs = RenderScript.create(this);
+        yuvToRgbIntrinsic = ScriptIntrinsicYuvToRGB.create(rs, Element.U8_4(rs));
         // 语音
         textToSpeech = new TextToSpeech(this, this);
+        // camera
+        if (icicle != null) {
+            cameraId = icicle.getInt(BUNDLE_CAMERA_ID, 0);
+        }
         // socket
         mSocketManager = new SocketManagerNew();
         mSocketManager.init();
-        mSocketManager.setOnSocketConnectListener(onConnectListener);
-        mSocketManager.setOnBindAuthListener(onBindAuthListener);
-        mSocketManager.setOnSendImageListener(onSendImageListener);
+        mSocketManager.setOnSocketConnectListener(new MyConnectListener(this));
+        mSocketManager.setOnBindAuthListener(new MyOnBindAuthListener(this));
+        mSocketManager.setOnSendImageListener(new MySendImageListener(this));
         mSocketManager.startConnect();
+    }
+
+    private void initListener() {
         // 注册
         findViewById(R.id.btn_register).setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 //检测是否有写的权限
-                int permission = ActivityCompat.checkSelfPermission(FaceDetectRGB8Activity.this,
+                int permission = ActivityCompat.checkSelfPermission(FaceDetectRGB9Activity.this,
                         "android.permission.WRITE_EXTERNAL_STORAGE");
                 if (permission != PackageManager.PERMISSION_GRANTED) {
-                    ActivityCompat.requestPermissions(FaceDetectRGB8Activity.this, PERMISSIONS_STORAGE, REQUEST_EXTERNAL_STORAGE);
+                    ActivityCompat.requestPermissions(FaceDetectRGB9Activity.this, PERMISSIONS_STORAGE, REQUEST_EXTERNAL_STORAGE);
                 } else {
                     // 开启倒计时
                     countDown();
@@ -201,9 +193,12 @@ public final class FaceDetectRGB8Activity extends AppCompatActivity implements S
         });
     }
 
-    private boolean isCounting;
-    private boolean isRegistering;
-    private Bitmap faceBitmap;
+    private void initView() {
+        mView = findViewById(R.id.surfaceview);
+        iv_face = findViewById(R.id.iv_face);
+        tv_log = findViewById(R.id.tv_log);
+        scrollView = findViewById(R.id.scrollView);
+    }
 
     private void countDown() {
         if (!isCounting) {
@@ -214,7 +209,7 @@ public final class FaceDetectRGB8Activity extends AppCompatActivity implements S
                     public void onTick(long millisUntilFinished) {
                         isCounting = true;
                         String value = String.valueOf((int) (millisUntilFinished / 1000));
-                        Toast.makeText(FaceDetectRGB8Activity.this, value, Toast.LENGTH_SHORT).show();
+                        showToast(value);
                     }
 
                     @Override
@@ -235,12 +230,10 @@ public final class FaceDetectRGB8Activity extends AppCompatActivity implements S
     }
 
     private void showDialog() {
-
         final EditText et = new EditText(this);
         et.setHint("请输入用户名");
 
         new AlertDialog.Builder(this).setTitle("使用当前人脸注册？")
-                .setIcon(android.R.drawable.ic_dialog_info)
                 .setView(et)
                 .setPositiveButton("上传", new DialogInterface.OnClickListener() {
                     public void onClick(DialogInterface dialog, int which) {
@@ -248,7 +241,7 @@ public final class FaceDetectRGB8Activity extends AppCompatActivity implements S
 
                         final String input = et.getText().toString();
                         if (input.equals("")) {
-                            Toast.makeText(getApplicationContext(), "用户名不能为空！" + input, Toast.LENGTH_LONG).show();
+                            showToast("用户名不能为空！");
                             isRegistering = false;
                         } else {
                             if (faceBitmap != null) {
@@ -289,12 +282,17 @@ public final class FaceDetectRGB8Activity extends AppCompatActivity implements S
     }
 
     private void showToast(final String text) {
-        runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                Toast.makeText(FaceDetectRGB8Activity.this, text, Toast.LENGTH_SHORT).show();
-            }
-        });
+        long currentThreadId = android.os.Process.myTid();
+        if (currentThreadId != mainThreadId) {
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    Toast.makeText(FaceDetectRGB9Activity.this, text, Toast.LENGTH_SHORT).show();
+                }
+            });
+        } else {
+            Toast.makeText(FaceDetectRGB9Activity.this, text, Toast.LENGTH_SHORT).show();
+        }
     }
 
     private void postImage(String userName, File outputImage) {
@@ -309,11 +307,18 @@ public final class FaceDetectRGB8Activity extends AppCompatActivity implements S
                 .url("http://192.168.3.181:7070/App/user/register")
                 .params(params)
                 .addFile("image", "output_image.jpg", outputImage)
+                .tag(mTag)
                 .build()
-                .execute(new MyStringCallback());
+                .execute(new MyStringCallback(outputImage));
     }
 
     public class MyStringCallback extends StringCallback {
+        private File fileImage;
+
+        MyStringCallback(File fileImage) {
+            this.fileImage = fileImage;
+        }
+
         @Override
         public void onBefore(Request request, int id) {
             Log.e(TAG, "onBefore:");
@@ -326,36 +331,49 @@ public final class FaceDetectRGB8Activity extends AppCompatActivity implements S
 
         @Override
         public void onError(Call call, Exception e, int id) {
-            e.printStackTrace();
             Log.e(TAG, "onError:" + e.getMessage());
+            e.printStackTrace();
             isRegistering = false;
             showToast("注册出错");
+            deleteFile();
         }
 
         @Override
         public void onResponse(String response, int id) {
+            Log.e(TAG, "response:" + response);
             isRegistering = false;
             showToast("true".equals(response) ? "注册成功" : "注册失败");
-            Log.e(TAG, "response:" + response);
+            deleteFile();
         }
 
         @Override
         public void inProgress(float progress, long total, int id) {
             Log.e(TAG, "inProgress:" + progress);
         }
+
+        private void deleteFile() {
+            mExecutor.execute(new Runnable() {
+                @Override
+                public void run() {
+                    if (fileImage != null && fileImage.exists()) {
+                        fileImage.delete();
+                    }
+                }
+            });
+        }
     }
 
-    private void requestCameraPermission(final int RC_HANDLE_CAMERA_PERM) {
+    private void requestCameraPermission() {
         Log.w(TAG, "Camera permission is not granted. Requesting permission");
 
         final String[] permissions = new String[]{Manifest.permission.CAMERA};
 
-        ActivityCompat.requestPermissions(this, permissions, RC_HANDLE_CAMERA_PERM);
+        ActivityCompat.requestPermissions(this, permissions, RC_HANDLE_CAMERA_PERM_RGB);
     }
 
     @Override
-    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
-
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+//        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
         if (grantResults.length != 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
             if (requestCode == RC_HANDLE_CAMERA_PERM_RGB) {
                 initialPreview();
@@ -374,7 +392,7 @@ public final class FaceDetectRGB8Activity extends AppCompatActivity implements S
         if (rc == PackageManager.PERMISSION_GRANTED) {
             initialPreview();
         } else {
-            requestCameraPermission(RC_HANDLE_CAMERA_PERM_RGB);
+            requestCameraPermission();
         }
         // 加入后台白名单，否则activity可能会被回收
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
@@ -391,7 +409,6 @@ public final class FaceDetectRGB8Activity extends AppCompatActivity implements S
 
     private void initialPreview() {
         SurfaceHolder holder = mView.getHolder();
-        holder.setType(SurfaceHolder.SURFACE_TYPE_PUSH_BUFFERS);
         holder.addCallback(this);
         holder.setFormat(ImageFormat.NV21);
     }
@@ -409,7 +426,6 @@ public final class FaceDetectRGB8Activity extends AppCompatActivity implements S
     protected void onResume() {
         super.onResume();
         Log.e(TAG, "lifecycle: onResume");
-//        startPreview();
     }
 
     /**
@@ -419,13 +435,6 @@ public final class FaceDetectRGB8Activity extends AppCompatActivity implements S
     protected void onPause() {
         super.onPause();
         Log.e(TAG, "lifecycle: onPause");
-//        stopPreview();
-    }
-
-    private void stopPreview() {
-        if (mCamera != null) {
-            mCamera.stopPreview();
-        }
     }
 
     @Override
@@ -445,13 +454,14 @@ public final class FaceDetectRGB8Activity extends AppCompatActivity implements S
         if (textToSpeech != null) {
             textToSpeech.stop(); // 不管是否正在朗读TTS都被打断
             textToSpeech.shutdown(); // 关闭，释放资源
+            textToSpeech = null;
         }
         mSocketManager.quit();
-        if (mCountDownTimer != null){
+        if (mCountDownTimer != null) {
             mCountDownTimer.cancel();
         }
-//        BaseApplication application = (BaseApplication)getApplication();
-//        application.removeActivity(this);
+        // 取消请求
+        OkHttpUtils.getInstance().cancelTag(mTag);
     }
 
     @Override
@@ -516,7 +526,7 @@ public final class FaceDetectRGB8Activity extends AppCompatActivity implements S
     private void setDisplayOrientation() {
         // Now set the display orientation:
         // Let's keep track of the display rotation and orientation also:
-        mDisplayRotation = Util.getDisplayRotation(FaceDetectRGB8Activity.this);
+        mDisplayRotation = Util.getDisplayRotation(FaceDetectRGB9Activity.this);
         mDisplayOrientation = Util.getDisplayOrientation(mDisplayRotation, cameraId);
 
         mCamera.setDisplayOrientation(mDisplayOrientation);
@@ -541,12 +551,6 @@ public final class FaceDetectRGB8Activity extends AppCompatActivity implements S
         Log.e(TAG, "previewWidth" + previewWidth);
         Log.e(TAG, "previewHeight" + previewHeight);
 
-        /**
-         * Calculate size to scale full frame bitmap to smaller bitmap
-         * Detect face in scaled bitmap have high performance than full bitmap.
-         * The smaller image size -> detect faster, but distance to detect face shorter,
-         * so calculate the size follow your purpose
-         */
 //        if (previewWidth / 4 > 360) {
 //            prevSettingWidth = 360;
 //            prevSettingHeight = 270;
@@ -560,7 +564,7 @@ public final class FaceDetectRGB8Activity extends AppCompatActivity implements S
 //            prevSettingWidth = 160;
 //            prevSettingHeight = 120;
 //        }
-
+        // 识别距离取决于人脸检测图片的大小
         if (previewWidth / 2 > 480) {
             prevSettingWidth = 480;
         } else if (previewWidth / 2 > 320) {
@@ -617,7 +621,7 @@ public final class FaceDetectRGB8Activity extends AppCompatActivity implements S
             int result = textToSpeech.setLanguage(Locale.CHINA);
             if (result == TextToSpeech.LANG_MISSING_DATA
                     || result == TextToSpeech.LANG_NOT_SUPPORTED) {
-                Toast.makeText(this, "语音数据丢失或不支持", Toast.LENGTH_SHORT).show();
+                showToast("语音数据丢失或不支持");
             } else {
                 isTTSInit = true;
             }
@@ -631,9 +635,9 @@ public final class FaceDetectRGB8Activity extends AppCompatActivity implements S
         private Handler handler;
         private byte[] data = null;
 
-        private WeakReference<FaceDetectRGB8Activity> mThreadActivityRef;
+        private WeakReference<FaceDetectRGB9Activity> mThreadActivityRef;
 
-        FaceDetectRunnable(Handler handler, FaceDetectRGB8Activity activity) {
+        FaceDetectRunnable(Handler handler, FaceDetectRGB9Activity activity) {
             this.handler = handler;
             mThreadActivityRef = new WeakReference<>(activity);
         }
@@ -645,7 +649,7 @@ public final class FaceDetectRGB8Activity extends AppCompatActivity implements S
         public void run() {
 //            long start = System.currentTimeMillis();
 
-            final FaceDetectRGB8Activity activity = mThreadActivityRef.get();
+            final FaceDetectRGB9Activity activity = mThreadActivityRef.get();
             if (activity == null) return;
 
             float aspect = (float) previewHeight / (float) previewWidth;
@@ -665,8 +669,9 @@ public final class FaceDetectRGB8Activity extends AppCompatActivity implements S
             if (!isTablet(activity) && info.facing == Camera.CameraInfo.CAMERA_FACING_FRONT && mDisplayRotation % 180 == 0) {
                 if (rotate + 180 > 360) {
                     rotate = rotate - 180;
-                } else
+                } else {
                     rotate = rotate + 180;
+                }
             }
 
             switch (rotate) {
@@ -741,7 +746,7 @@ public final class FaceDetectRGB8Activity extends AppCompatActivity implements S
         }
     }
 
-    public Bitmap nv21ToBitmap(byte[] nv21, int width, int height) {
+    public synchronized Bitmap nv21ToBitmap(byte[] nv21, int width, int height) {
         if (yuvType == null) {
             yuvType = new Type.Builder(rs, Element.U8(rs)).setX(nv21.length);
             in = Allocation.createTyped(rs, yuvType.create(), Allocation.USAGE_SCRIPT);
@@ -764,9 +769,9 @@ public final class FaceDetectRGB8Activity extends AppCompatActivity implements S
 
     private static class MyConnectListener implements OnSocketConnectListener {
 
-        private WeakReference<FaceDetectRGB8Activity> mActivityRef;
+        private WeakReference<FaceDetectRGB9Activity> mActivityRef;
 
-        MyConnectListener(FaceDetectRGB8Activity activity) {
+        MyConnectListener(FaceDetectRGB9Activity activity) {
             mActivityRef = new WeakReference<>(activity);
         }
 
@@ -776,7 +781,7 @@ public final class FaceDetectRGB8Activity extends AppCompatActivity implements S
 
         @Override
         public void onSocketDisconnected(final String msg) {
-            final FaceDetectRGB8Activity activity = mActivityRef.get();
+            final FaceDetectRGB9Activity activity = mActivityRef.get();
             if (activity != null) {
                 activity.runOnUiThread(new Runnable() {
                     @Override
@@ -790,15 +795,15 @@ public final class FaceDetectRGB8Activity extends AppCompatActivity implements S
 
     private static class MyOnBindAuthListener implements OnBindAuthListener {
 
-        private WeakReference<FaceDetectRGB8Activity> mActivityRef;
+        private WeakReference<FaceDetectRGB9Activity> mActivityRef;
 
-        MyOnBindAuthListener(FaceDetectRGB8Activity activity) {
+        MyOnBindAuthListener(FaceDetectRGB9Activity activity) {
             this.mActivityRef = new WeakReference<>(activity);
         }
 
         @Override
         public void onBindSuccess() {
-            final FaceDetectRGB8Activity activity = mActivityRef.get();
+            final FaceDetectRGB9Activity activity = mActivityRef.get();
             if (activity != null) {
                 Log.e(TAG, "认证成功");
                 activity.runOnUiThread(new Runnable() {
@@ -812,7 +817,7 @@ public final class FaceDetectRGB8Activity extends AppCompatActivity implements S
 
         @Override
         public void onBindFail(final String msg) {
-            final FaceDetectRGB8Activity activity = mActivityRef.get();
+            final FaceDetectRGB9Activity activity = mActivityRef.get();
             if (activity != null) {
                 Log.e(TAG, "认证失败");
                 activity.runOnUiThread(new Runnable() {
@@ -827,15 +832,15 @@ public final class FaceDetectRGB8Activity extends AppCompatActivity implements S
 
     private static class MySendImageListener implements OnSendImageListener {
 
-        private WeakReference<FaceDetectRGB8Activity> mActivityRef;
+        private WeakReference<FaceDetectRGB9Activity> mActivityRef;
 
-        MySendImageListener(FaceDetectRGB8Activity activity) {
+        MySendImageListener(FaceDetectRGB9Activity activity) {
             mActivityRef = new WeakReference<>(activity);
         }
 
         @Override
         public void onRecognizeSuccess(final DataModel data) {
-            final FaceDetectRGB8Activity activity = mActivityRef.get();
+            final FaceDetectRGB9Activity activity = mActivityRef.get();
             if (activity != null) {
                 activity.runOnUiThread(new Runnable() {
                     @Override
@@ -853,16 +858,16 @@ public final class FaceDetectRGB8Activity extends AppCompatActivity implements S
     }
 
     private static class MyHandler extends Handler {
-        private WeakReference<FaceDetectRGB8Activity> activityWeakReference;
+        private WeakReference<FaceDetectRGB9Activity> activityWeakReference;
 
-        MyHandler(FaceDetectRGB8Activity activity) {
+        MyHandler(FaceDetectRGB9Activity activity) {
             this.activityWeakReference = new WeakReference<>(activity);
         }
 
         @Override
         public void handleMessage(Message msg) {
             super.handleMessage(msg);
-            FaceDetectRGB8Activity activity = activityWeakReference.get();
+            FaceDetectRGB9Activity activity = activityWeakReference.get();
             if (activity == null) return;
             switch (msg.what) {
                 case 1:
@@ -871,12 +876,6 @@ public final class FaceDetectRGB8Activity extends AppCompatActivity implements S
                         activity.iv_face.setImageBitmap(bitmap);
                     }
                     break;
-                case 2:
-                    activity.startPreview();
-                    break;
-                case 3:
-                    Toast.makeText(activity, msg.arg1 == 1 ? "注册成功" : "注册失败", Toast.LENGTH_SHORT).show();
-                    break;
             }
         }
     }
@@ -884,7 +883,7 @@ public final class FaceDetectRGB8Activity extends AppCompatActivity implements S
     private void recognizeSuccess(DataModel data) {
         String userVoice = data.getUserVoice();
         String userName = data.getUserName();
-        if (isTTSInit) {
+        if (isTTSInit && textToSpeech != null) {
             if (!TextUtils.isEmpty(userVoice)) {
                 textToSpeech.speak(userVoice, TextToSpeech.QUEUE_FLUSH, null);
             } else if (!TextUtils.isEmpty(userName)) {
@@ -903,6 +902,9 @@ public final class FaceDetectRGB8Activity extends AppCompatActivity implements S
         scrollView.fullScroll(ScrollView.FOCUS_DOWN);
     }
 
+    /**
+     * 程序运行在A64板上，是一个平板，因此可以使用此办法区分是手机还是平板
+     */
     public static boolean isTablet(Context context) {
         return (context.getResources().getConfiguration().screenLayout
                 & Configuration.SCREENLAYOUT_SIZE_MASK)

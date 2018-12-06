@@ -10,6 +10,8 @@ import com.example.myfacedetectcamera.activities.FaceDetectRGB5Activity;
 import com.example.myfacedetectcamera.activities.FaceDetectRGB6Activity;
 import com.example.myfacedetectcamera.activities.FaceDetectRGB7Activity;
 import com.example.myfacedetectcamera.activities.FaceDetectRGB8Activity;
+import com.example.myfacedetectcamera.activities.FaceDetectRGB9Activity;
+import com.example.myfacedetectcamera.activities.ManagerActivity;
 import com.example.myfacedetectcamera.activities.RegisterActivity;
 
 public class MainActivity extends AppCompatActivity {
@@ -22,7 +24,7 @@ public class MainActivity extends AppCompatActivity {
         findViewById(R.id.btn_1).setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                Intent intent = new Intent(MainActivity.this, FaceDetectRGB8Activity.class);
+                Intent intent = new Intent(MainActivity.this, FaceDetectRGB9Activity.class);
                 startActivity(intent);
             }
         });
@@ -51,6 +53,13 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onClick(View v) {
                 Intent intent = new Intent(MainActivity.this, RegisterActivity.class);
+                startActivity(intent);
+            }
+        });
+        findViewById(R.id.btn_manager).setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                Intent intent = new Intent(MainActivity.this, ManagerActivity.class);
                 startActivity(intent);
             }
         });

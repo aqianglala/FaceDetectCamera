@@ -150,7 +150,7 @@ public class RegisterActivity extends AppCompatActivity implements OnClickListen
 
     private void postImage() {
         String userName = et_name.getText().toString().trim();
-        if (TextUtils.isEmpty(userName)){
+        if (TextUtils.isEmpty(userName)) {
             Toast.makeText(this, "用户名不能为空！", Toast.LENGTH_SHORT).show();
             return;
         }
@@ -168,7 +168,7 @@ public class RegisterActivity extends AppCompatActivity implements OnClickListen
                     .addFile("image", "output_image.jpg", outputImage)
                     .build()
                     .execute(new MyStringCallback());
-        } else{
+        } else {
             Toast.makeText(this, "图片为空！", Toast.LENGTH_SHORT).show();
         }
     }
@@ -193,7 +193,7 @@ public class RegisterActivity extends AppCompatActivity implements OnClickListen
         @Override
         public void onResponse(String response, int id) {
 
-            Toast.makeText(RegisterActivity.this, "true".equals(response) ? "注册成功" : "注册失败" , Toast.LENGTH_SHORT).show();
+            Toast.makeText(RegisterActivity.this, "true".equals(response) ? "注册成功" : "注册失败", Toast.LENGTH_SHORT).show();
             Log.e(TAG, "response:" + response);
         }
 
