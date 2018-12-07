@@ -249,6 +249,10 @@ public final class FaceDetectRGB9Activity extends AppCompatActivity implements S
                                     @Override
                                     public void run() {
                                         File file = FileUtils.saveToLocal(faceBitmap);
+                                        if (!faceBitmap.isRecycled()) {
+                                            faceBitmap.recycle();
+                                            faceBitmap = null;
+                                        }
                                         if (file != null && file.exists()) {
                                             postImage(input, file);
                                         } else {
@@ -725,7 +729,7 @@ public final class FaceDetectRGB9Activity extends AppCompatActivity implements S
 //                            Log.e(TAG, "检测人脸时间：" + (end - start) + "ms");
                             // 注册
                             if (activity.isCounting) {
-                                activity.faceBitmap = faceCroped;
+                                activity.faceBitmap = bitmap;
                             }
 
                             // 将图片发送到服务端
