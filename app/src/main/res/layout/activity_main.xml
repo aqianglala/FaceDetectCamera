@@ -38,4 +38,20 @@
         android:layout_height="wrap_content"
         android:text="管理" />
 
+    <Button
+        android:id="@+id/btn_set_ip"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="设置" />
+    <Button
+        android:id="@+id/btn_user"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="user" />
+    <Button
+        android:id="@+id/btn_robot"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="robot" />
+
 </LinearLayout>

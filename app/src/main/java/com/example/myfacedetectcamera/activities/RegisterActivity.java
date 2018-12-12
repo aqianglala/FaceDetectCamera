@@ -21,6 +21,7 @@ import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.Toast;
 
+import com.example.myfacedetectcamera.BaseApplication;
 import com.example.myfacedetectcamera.R;
 import com.zhy.http.okhttp.OkHttpUtils;
 import com.zhy.http.okhttp.callback.StringCallback;
@@ -154,6 +155,11 @@ public class RegisterActivity extends AppCompatActivity implements OnClickListen
             Toast.makeText(this, "用户名不能为空！", Toast.LENGTH_SHORT).show();
             return;
         }
+        String ip = BaseApplication.getIp();
+        if (TextUtils.isEmpty(ip)) {
+            Toast.makeText(this, "请先设置ip！", Toast.LENGTH_SHORT).show();
+            return;
+        }
         if (outputImage != null && outputImage.exists()) {
             Map<String, String> params = new HashMap<>();
             params.put("userName", userName);
@@ -163,7 +169,7 @@ public class RegisterActivity extends AppCompatActivity implements OnClickListen
             params.put("userType", "5");
             OkHttpUtils
                     .post()
-                    .url("http://192.168.3.181:7070/App/user/register")
+                    .url("http://" + ip + ":7070/App/user/register")
                     .params(params)
                     .addFile("image", "output_image.jpg", outputImage)
                     .build()

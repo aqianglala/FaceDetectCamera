@@ -82,6 +82,7 @@ public final class FaceDetectRGB9Activity extends AppCompatActivity implements S
     private static final int MAX_FACE = 1;
     private static int cameraId = 0;
     private static int mDisplayOrientation;
+    private boolean isCameraUsable;
 
     private static int previewWidth;
     private static int previewHeight;
@@ -129,6 +130,7 @@ public final class FaceDetectRGB9Activity extends AppCompatActivity implements S
     private boolean isRegistering;
     private Bitmap faceBitmap;
     private Object mTag = new Object();
+    private int mRotate;
     //==============================================================================================
     // Activity Methods
     //==============================================================================================
@@ -248,6 +250,7 @@ public final class FaceDetectRGB9Activity extends AppCompatActivity implements S
                                 mExecutor.execute(new Runnable() {
                                     @Override
                                     public void run() {
+                                        faceBitmap = ImageUtils.rotate(faceBitmap, mRotate);
                                         File file = FileUtils.saveToLocal(faceBitmap);
                                         if (!faceBitmap.isRecycled()) {
                                             faceBitmap.recycle();
@@ -300,6 +303,11 @@ public final class FaceDetectRGB9Activity extends AppCompatActivity implements S
     }
 
     private void postImage(String userName, File outputImage) {
+        String ip = BaseApplication.getIp();
+        if (TextUtils.isEmpty(ip)) {
+            showToast("请先设置ip！");
+            return;
+        }
         Map<String, String> params = new HashMap<>();
         params.put("userName", userName);
         params.put("effectiveDate", "2018-11-27 00:00:00");
@@ -308,7 +316,7 @@ public final class FaceDetectRGB9Activity extends AppCompatActivity implements S
         params.put("userType", "5");
         OkHttpUtils
                 .post()
-                .url("http://192.168.3.181:7070/App/user/register")
+                .url("http://" + ip + ":7070/App/user/register")
                 .params(params)
                 .addFile("image", "output_image.jpg", outputImage)
                 .tag(mTag)
@@ -485,8 +493,14 @@ public final class FaceDetectRGB9Activity extends AppCompatActivity implements S
                 if (cameraId == 0) cameraId = i;
             }
         }
-
-        mCamera = Camera.open(cameraId);
+        try {
+            mCamera = Camera.open(cameraId);
+            isCameraUsable = true;
+        } catch (Exception e) {
+            mCamera = null;
+            showToast("相机不可用！");
+            return;
+        }
 
         Camera.getCameraInfo(cameraId, cameraInfo);
         try {
@@ -499,6 +513,7 @@ public final class FaceDetectRGB9Activity extends AppCompatActivity implements S
     @Override
     public void surfaceChanged(SurfaceHolder surfaceHolder, int format, int width, int height) {
         Log.e(TAG, "lifecycle: surfaceChanged");
+        if (!isCameraUsable || mCamera == null) return;
         // We have no surface, return immediately:
         if (surfaceHolder.getSurface() == null) {
             return;
@@ -612,6 +627,7 @@ public final class FaceDetectRGB9Activity extends AppCompatActivity implements S
     public void onPreviewFrame(byte[] _data, Camera _camera) {
 //        if (!isThreadWorking) {
 //            isThreadWorking = true;
+        if (_data == null) return;
         FaceDetectRunnable detectRunnable = new FaceDetectRunnable(handler, this);
         detectRunnable.setData(_data);
         mExecutor.execute(detectRunnable);
@@ -677,7 +693,7 @@ public final class FaceDetectRGB9Activity extends AppCompatActivity implements S
                     rotate = rotate + 180;
                 }
             }
-
+            activity.mRotate = rotate;
             switch (rotate) {
                 case 90:
                     bmp = ImageUtils.rotate(bmp, 90);

@@ -10,6 +10,7 @@ import android.text.TextUtils;
 import android.util.Log;
 import android.widget.Toast;
 
+import com.example.myfacedetectcamera.BaseApplication;
 import com.example.myfacedetectcamera.R;
 import com.example.myfacedetectcamera.adapters.UserListAdapter;
 import com.example.myfacedetectcamera.model.UserModel;
@@ -56,7 +57,7 @@ public class ManagerActivity extends AppCompatActivity implements UserListAdapte
             @Override
             public void onScrollStateChanged(@NonNull RecyclerView recyclerView, int newState) {
                 super.onScrollStateChanged(recyclerView, newState);
-                if (newState ==RecyclerView.SCROLL_STATE_IDLE && lastVisibleItem + 1 ==mAdapter.getItemCount()) {
+                if (newState == RecyclerView.SCROLL_STATE_IDLE && lastVisibleItem + 1 == mAdapter.getItemCount()) {
                     loadMore();
                 }
             }
@@ -73,7 +74,7 @@ public class ManagerActivity extends AppCompatActivity implements UserListAdapte
         mSwipeRefreshLayout.post(new Runnable() {
             @Override
             public void run() {
-                if (!isLoading){
+                if (!isLoading) {
                     isLoading = true;
                     mSwipeRefreshLayout.setRefreshing(true);
                     getUser(0);
@@ -83,7 +84,13 @@ public class ManagerActivity extends AppCompatActivity implements UserListAdapte
     }
 
     private void getUser(int pageIndex) {
-        String url = "http://192.168.3.181:7070/App/user/page/" + pageIndex + "/" + mPageSize;
+        String ip = BaseApplication.getIp();
+        if (TextUtils.isEmpty(ip)) {
+            showToast("请先设置ip！");
+            stopLoading();
+            return;
+        }
+        String url = "http://" + ip + ":7070/App/user/page/" + pageIndex + "/" + mPageSize;
         OkHttpUtils
                 .get()
                 .url(url)
@@ -101,7 +108,7 @@ public class ManagerActivity extends AppCompatActivity implements UserListAdapte
                         List<UserModel> data = new Gson().fromJson(response, new TypeToken<List<UserModel>>() {
                         }.getType());
                         if (data != null && data.size() > 0) {
-                            if (isRefresh){
+                            if (isRefresh) {
                                 mData.clear();
                             }
                             mData.addAll(data);
@@ -117,7 +124,12 @@ public class ManagerActivity extends AppCompatActivity implements UserListAdapte
             showToast("userId为空！");
             return;
         }
-        String url = "http://192.168.3.181:7070/App/user/delete/" + userId;
+        String ip = BaseApplication.getIp();
+        if (TextUtils.isEmpty(ip)) {
+            showToast("请先设置ip！");
+            return;
+        }
+        String url = "http://" + ip + ":7070/App/user/delete/" + userId;
         OkHttpUtils
                 .post()
                 .url(url)
@@ -153,7 +165,7 @@ public class ManagerActivity extends AppCompatActivity implements UserListAdapte
 
     @Override
     public void onRefresh() {
-        if (!isLoading){
+        if (!isLoading) {
             isLoading = true;
             isRefresh = true;
             mPageIndex = 0;
@@ -161,8 +173,8 @@ public class ManagerActivity extends AppCompatActivity implements UserListAdapte
         }
     }
 
-    private void loadMore(){
-        if (!isLoading){
+    private void loadMore() {
+        if (!isLoading) {
             isLoading = true;
             isRefresh = false;
             mSwipeRefreshLayout.setRefreshing(true);
@@ -170,7 +182,7 @@ public class ManagerActivity extends AppCompatActivity implements UserListAdapte
         }
     }
 
-    private void stopLoading(){
+    private void stopLoading() {
         isLoading = false;
         mSwipeRefreshLayout.setRefreshing(false);
     }

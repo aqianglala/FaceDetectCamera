@@ -3,9 +3,11 @@ package com.example.myfacedetectcamera;
 import android.app.Activity;
 import android.app.Application;
 import android.content.Context;
+import android.text.TextUtils;
+import android.widget.Toast;
 
 import com.example.myfacedetectcamera.utils.FileLogHelper;
-import com.squareup.leakcanary.LeakCanary;
+import com.example.myfacedetectcamera.utils.SPUtils;
 import com.zhy.http.okhttp.OkHttpUtils;
 
 import java.util.ArrayList;
@@ -43,7 +45,7 @@ public class BaseApplication extends Application {
 
 //        init();
         // log工具类
-//        FileLogHelper.getInstance().addLogTag("");
+        FileLogHelper.getInstance().addLogTag("");
     }
 
 
@@ -71,5 +73,9 @@ public class BaseApplication extends Application {
         }
         //杀死该应用进程
         android.os.Process.killProcess(android.os.Process.myPid());
+    }
+
+    public static String getIp() {
+        return (String) SPUtils.get(Constants.KEY_IP, "");
     }
 }

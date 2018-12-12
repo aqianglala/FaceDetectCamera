@@ -3,6 +3,7 @@ package com.example.myfacedetectcamera.net;
 import android.graphics.Bitmap;
 import android.os.Handler;
 import android.os.HandlerThread;
+import android.text.TextUtils;
 import android.util.Log;
 
 import com.example.myfacedetectcamera.BaseApplication;
@@ -67,9 +68,12 @@ public class SocketManagerNew {
                 //每次需要执行的代码放到这里面。
                 if (checkIsAlive()) return;
                 try {
-                    String mIp = "192.168.3.181";
-                    int mPort = 10011;
-                    mSocket = new Socket(mIp, mPort);
+                    String ip = BaseApplication.getIp();
+                    if (TextUtils.isEmpty(ip)){
+                        return;
+                    }
+                    int port = 10011;
+                    mSocket = new Socket(ip, port);
                     if (onSocketConnectListener != null) {
                         onSocketConnectListener.onSocketConnected();
                     }
