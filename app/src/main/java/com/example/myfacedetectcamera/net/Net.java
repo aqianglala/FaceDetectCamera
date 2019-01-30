@@ -1,12 +1,8 @@
 package com.example.myfacedetectcamera.net;
 
 import android.graphics.Bitmap;
-import android.graphics.ImageFormat;
-import android.util.Log;
 
-import com.example.myfacedetectcamera.activities.FaceDetectRGB4Activity;
 import com.example.myfacedetectcamera.test.NettyAuth;
-import com.example.myfacedetectcamera.test.RestoreTest;
 import com.example.myfacedetectcamera.utils.Util;
 import com.google.gson.Gson;
 

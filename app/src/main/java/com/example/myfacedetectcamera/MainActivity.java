@@ -10,19 +10,12 @@ import android.view.View;
 import android.widget.EditText;
 import android.widget.Toast;
 
-import com.example.myfacedetectcamera.activities.FaceDetectRGB4Activity;
-import com.example.myfacedetectcamera.activities.FaceDetectRGB5Activity;
-import com.example.myfacedetectcamera.activities.FaceDetectRGB6Activity;
-import com.example.myfacedetectcamera.activities.FaceDetectRGB7Activity;
-import com.example.myfacedetectcamera.activities.FaceDetectRGB8Activity;
-import com.example.myfacedetectcamera.activities.FaceDetectRGB9Activity;
+import com.example.myfacedetectcamera.activities.FaceDetectRGBActivity;
 import com.example.myfacedetectcamera.activities.ManagerActivity;
 import com.example.myfacedetectcamera.activities.RegisterActivity;
 import com.example.myfacedetectcamera.activities.WebActivity;
-import com.example.myfacedetectcamera.utils.FileUtils;
 import com.example.myfacedetectcamera.utils.SPUtils;
 
-import java.io.File;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -34,31 +27,10 @@ public class MainActivity extends AppCompatActivity {
         findViewById(R.id.btn_1).setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                Intent intent = new Intent(MainActivity.this, FaceDetectRGB9Activity.class);
+                Intent intent = new Intent(MainActivity.this, FaceDetectRGBActivity.class);
                 startActivity(intent);
             }
         });
-//        findViewById(R.id.btn_3).setOnClickListener(new View.OnClickListener() {
-//            @Override
-//            public void onClick(View v) {
-//                Intent intent = new Intent(MainActivity.this, FaceDetectRGB5Activity.class);
-//                startActivity(intent);
-//            }
-//        });
-//        findViewById(R.id.btn_4).setOnClickListener(new View.OnClickListener() {
-//            @Override
-//            public void onClick(View v) {
-//                Intent intent = new Intent(MainActivity.this, FaceDetectRGB6Activity.class);
-//                startActivity(intent);
-//            }
-//        });
-//        findViewById(R.id.btn_5).setOnClickListener(new View.OnClickListener() {
-//            @Override
-//            public void onClick(View v) {
-//                Intent intent = new Intent(MainActivity.this, FaceDetectRGB7Activity.class);
-//                startActivity(intent);
-//            }
-//        });
         findViewById(R.id.btn_2).setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {

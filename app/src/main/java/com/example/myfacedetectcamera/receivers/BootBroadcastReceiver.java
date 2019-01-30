@@ -5,8 +5,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.util.Log;
 
-import com.example.myfacedetectcamera.MainActivity;
-import com.example.myfacedetectcamera.activities.FaceDetectRGB9Activity;
+import com.example.myfacedetectcamera.activities.FaceDetectRGBActivity;
 
 
 public class BootBroadcastReceiver extends BroadcastReceiver {
@@ -16,7 +15,7 @@ public class BootBroadcastReceiver extends BroadcastReceiver {
         Log.e("BootBroadcastReceiver", "onReceive");
         if (intent.getAction().equals(ACTION)) {
 //            Intent startIntent = context.getPackageManager().getLaunchIntentForPackage(context.getPackageName());
-            Intent startIntent = new Intent(context, FaceDetectRGB9Activity.class);
+            Intent startIntent = new Intent(context, FaceDetectRGBActivity.class);
             //下面这句话必须加上才能开机自动运行app的界面
             startIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             context.startActivity(startIntent);

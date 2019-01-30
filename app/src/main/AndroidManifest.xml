@@ -40,26 +40,7 @@
             </intent-filter>
         </activity>
         <activity
-            android:name=".activities.FaceDetectActivity"
-            android:screenOrientation="fullSensor" />
-        <activity
-            android:name=".activities.FaceDetectRGB4Activity"
-            android:screenOrientation="fullSensor" />
-        <activity
-            android:name=".activities.FaceDetectRGB5Activity"
-            android:screenOrientation="fullSensor" />
-        <activity
-            android:name=".activities.FaceDetectRGB6Activity"
-            android:screenOrientation="fullSensor" />
-        <activity
-            android:name=".activities.FaceDetectRGB7Activity"
-            android:screenOrientation="fullSensor" />
-        <activity
-            android:name=".activities.FaceDetectRGB8Activity"
-            android:screenOrientation="fullSensor"
-            android:windowSoftInputMode="adjustPan|stateHidden" />
-        <activity
-            android:name=".activities.FaceDetectRGB9Activity"
+            android:name=".activities.FaceDetectRGBActivity"
             android:screenOrientation="fullSensor"
             android:windowSoftInputMode="adjustPan|stateHidden">
 

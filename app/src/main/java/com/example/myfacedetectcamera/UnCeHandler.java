@@ -4,11 +4,10 @@ import android.app.AlarmManager;
 import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
-import android.os.Looper;
 import android.util.Log;
-import android.widget.Toast;
 
-import com.example.myfacedetectcamera.activities.FaceDetectRGB6Activity;
+import com.example.myfacedetectcamera.activities.FaceDetectRGBActivity;
+
 
 public class UnCeHandler implements Thread.UncaughtExceptionHandler {
 
@@ -33,7 +32,7 @@ public class UnCeHandler implements Thread.UncaughtExceptionHandler {
 //            } catch (InterruptedException e) {
 //                Log.e(TAG, "error : ", e);
 //            }
-            Intent intent = new Intent(application.getApplicationContext(), FaceDetectRGB6Activity.class);
+            Intent intent = new Intent(application.getApplicationContext(), FaceDetectRGBActivity.class);
             PendingIntent restartIntent = PendingIntent.getActivity(
                     application.getApplicationContext(), 0, intent,
                     PendingIntent.FLAG_UPDATE_CURRENT);

@@ -3,17 +3,17 @@ package com.example.myfacedetectcamera.net;
 import android.graphics.Bitmap;
 import android.os.Handler;
 import android.os.HandlerThread;
+import android.text.TextUtils;
 import android.util.Log;
 
 import com.example.myfacedetectcamera.BaseApplication;
 import com.example.myfacedetectcamera.model.DataModel;
-import com.example.myfacedetectcamera.model.ImageModel;
 import com.example.myfacedetectcamera.test.NettyAuth;
+import com.example.myfacedetectcamera.utils.NettyConstantUtils.NettyClientCmd;
+import com.example.myfacedetectcamera.utils.NettyConstantUtils.NettyProtoType;
 import com.example.myfacedetectcamera.utils.NetworkUtil;
 import com.example.myfacedetectcamera.utils.Util;
 import com.google.gson.Gson;
-import com.example.myfacedetectcamera.utils.NettyConstantUtils.NettyClientCmd;
-import com.example.myfacedetectcamera.utils.NettyConstantUtils.NettyProtoType;
 
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -23,115 +23,86 @@ import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.net.Socket;
-import java.util.LinkedList;
+import java.util.Timer;
+import java.util.TimerTask;
 
 public class SocketManager {
 
     private String mTag = "SocketManager";
-    private SocketManager mInstance;
 
     private Handler mWriterHandler;
     private int token;
     private Socket mSocket;
-    private LinkedList<Bitmap> mBitmaps = new LinkedList<>();
     private boolean isSending;
-    private boolean isConnecting;
-    private boolean isReConnecting;
     private boolean isBinded;
-    private boolean isActiveDisconnect;
-    private boolean isThreadRunning;
+    private boolean isBinding;
 
     private OnSocketConnectListener onSocketConnectListener;
     private OnBindAuthListener onBindAuthListener;
     private OnSendImageListener onSendImageListener;
+    private Timer timer;
 
-    public SocketManager() {}
+    public SocketManager() {
+    }
 
-    public void init(){
-        isActiveDisconnect = false;
+    public void init() {
         HandlerThread mWriterThread = new HandlerThread("socket-writer");
         mWriterThread.start();
         mWriterHandler = new Handler(mWriterThread.getLooper());
     }
 
-    public void quit(){
-        isActiveDisconnect = true;
+    public void quit() {
         this.onSocketConnectListener = null;
         this.onSendImageListener = null;
         this.onBindAuthListener = null;
         closeConnect();
-    }
-
-    public void startConnect(){
-        if (isThreadRunning()) return;
-        mWriterHandler.post(new Runnable() {
-            @Override
-            public void run() {
-                setThreadRunning(true);
-                doConnect();
-                setThreadRunning(false);
-            }
-        });
-    }
-
-    public void setOnSocketConnectListener(OnSocketConnectListener listener){
-        this.onSocketConnectListener = listener;
-    }
-
-//    public void unOnRegisterSocketConnectListener(){
-//        this.onSocketConnectListener = null;
-//    }
-
-    public void setOnSendImageListener(OnSendImageListener listener){
-        this.onSendImageListener = listener;
-    }
-
-//    public void unRegisterOnSendImageListener(){
-//        this.onSendImageListener = null;
-//    }
-
-    public void setOnBindAuthListener(OnBindAuthListener listener){
-        this.onBindAuthListener = listener;
-    }
-
-//    public void unRegisterOnBindAuthListener(){
-//        this.onBindAuthListener = null;
-//    }
-
-    private synchronized void doConnect() {
-        if (checkIsAlive()) return;
-        if (isConnecting) return;
-        isConnecting = true;
-        try {
-            String mIp = "192.168.3.181";
-            int mPort = 10011;
-            mSocket = new Socket(mIp, mPort);
-            if (onSocketConnectListener != null) {
-                onSocketConnectListener.onSocketConnected();
-            }
-            Log.e(mTag, "链接成功...");
-        } catch (Exception e) {
-            e.printStackTrace();
-            if (onSocketConnectListener != null) {
-                onSocketConnectListener.onSocketDisconnected(e.getMessage());
-            }
-            Log.e(mTag, "链接出错..." + e.getMessage());
-        } finally {
-            isConnecting = false;
-            isReConnecting = false;
+        if (timer != null) {
+            timer.cancel();
         }
     }
 
-    private void reconnect(){
-        if (isActiveDisconnect) return;
-        if (isReConnecting) return;
-        isReConnecting = true;
-        closeConnect();
-        startConnect();
+    public synchronized void startConnect() {
+        timer = new Timer();
+        TimerTask task = new TimerTask() {
+            public void run() {
+                //每次需要执行的代码放到这里面。
+                if (checkIsAlive()) return;
+                try {
+                    String ip = BaseApplication.getIp();
+                    if (TextUtils.isEmpty(ip)){
+                        return;
+                    }
+                    int port = 10011;
+                    mSocket = new Socket(ip, port);
+                    if (onSocketConnectListener != null) {
+                        onSocketConnectListener.onSocketConnected();
+                    }
+                    Log.e(mTag, "链接成功...");
+                } catch (Exception e) {
+                    e.printStackTrace();
+                    if (onSocketConnectListener != null) {
+                        onSocketConnectListener.onSocketDisconnected(e.getMessage());
+                    }
+                    Log.e(mTag, "链接出错..." + e.getMessage());
+                }
+            }
+        };
+        timer.schedule(task, 0, 3000);
     }
 
-    private void closeConnect() {
-//        mWriterHandler.removeCallbacksAndMessages(null);
+    public void setOnSocketConnectListener(OnSocketConnectListener listener) {
+        this.onSocketConnectListener = listener;
+    }
+
+    public void setOnSendImageListener(OnSendImageListener listener) {
+        this.onSendImageListener = listener;
+    }
+
+    public void setOnBindAuthListener(OnBindAuthListener listener) {
+        this.onBindAuthListener = listener;
+    }
+
+    private synchronized void closeConnect() {
         if (mSocket != null) {
             try {
                 mSocket.close();
@@ -140,7 +111,7 @@ public class SocketManager {
                 e.printStackTrace();
             }
         }
-        mBitmaps.clear();
+        isBinded = false;
     }
 
     private synchronized boolean checkIsAlive() {
@@ -148,75 +119,44 @@ public class SocketManager {
         return true;
     }
 
-    public boolean isThreadRunning() {
-        return isThreadRunning;
-    }
-
-    public void setThreadRunning(boolean threadRunning) {
-        isThreadRunning = threadRunning;
-        if (threadRunning){
-            Log.e(mTag, "任务开始");
-        } else{
-            Log.e(mTag, "任务结束");
-        }
-    }
-
     /**
-     * 业务方法：进行设备认证
+     * 业务方法：进行设备认证，验证成功后才可以发送图片
      */
-    public synchronized void bindAuth() {
-        if (isThreadRunning()) return;
+    private synchronized void bindAuth() {
         if (!NetworkUtil.isNetworkAvailable(BaseApplication.getContext())) return;
-        if (!checkIsAlive()) {
-            reconnect();
-        }
+        if (!checkIsAlive()) return;
+        isBinding = true;
         mWriterHandler.post(new Runnable() {
             @Override
             public void run() {
-                setThreadRunning(true);
                 doBindAuth();
-                setThreadRunning(false);
+                isBinding = false;
             }
         });
     }
 
     /**
-     * 业务方法：发送截取的人脸到服务器，服务器会对图片进行人脸识别
+     * 业务方法：发送截取的人脸到服务器，服务器会对图片进行人脸识别，此方法必须在bingAuth完成后执行，
+     * 否则服务器不会回调，进而堵塞流
      *
-     * @param bitmap   截取的人脸
+     * @param bitmap 截取的人脸
      */
     public synchronized void sendImage(final Bitmap bitmap) {
-        if (isSending){// 更新缓存
-            addBitmap(bitmap);
-        } else{
+        if (!isSending) {
             if (!NetworkUtil.isNetworkAvailable(BaseApplication.getContext())) return;
-
-            if (!checkIsAlive()) {
-                reconnect();
-                return;
-            }
-            if (!isBinded){
+            if (!checkIsAlive()) return;
+            if (!isBinded && !isBinding) {
                 bindAuth();
                 return;
             }
-            if (isThreadRunning()) return;
+            isSending = true;
             mWriterHandler.post(new Runnable() {
                 @Override
                 public void run() {
-                    setThreadRunning(true);
-                    Bitmap b = checkQueue();
-                    if (b != null){
-                        addBitmap(bitmap);
-                        doSendImage(b);
-                    } else{
-                        doSendImage(bitmap);
-                    }
-                    setThreadRunning(false);
+                    doSendImage(bitmap);
                 }
             });
         }
-
-
     }
 
     private void doBindAuth() {
@@ -264,7 +204,7 @@ public class SocketManager {
                             if (onBindAuthListener != null) {
                                 onBindAuthListener.onBindSuccess();
                             }
-                        } else{
+                        } else {
                             isBinded = false;
                             if (onBindAuthListener != null) {
                                 onBindAuthListener.onBindFail("code: " + responseCode);
@@ -294,7 +234,6 @@ public class SocketManager {
         try {
             if (mSocket != null && mSocket.isConnected()) {
                 if (!mSocket.isOutputShutdown()) {
-                    isSending = true;
                     NettyAuth auth = new NettyAuth();
                     auth.setClientType(3000);
                     auth.setClientId(Util.getNewMac());
@@ -371,30 +310,8 @@ public class SocketManager {
             if (onSendImageListener != null) {
                 onSendImageListener.onRecognizeFail(e.getMessage());
             }
-        }finally {
+        } finally {
             isSending = false;
         }
     }
-
-    /**
-     * 运行在当前线程中
-     *
-     * @return
-     */
-    private Bitmap checkQueue() {
-        if (mBitmaps.size() > 0) {
-            return mBitmaps.removeFirst();
-        }
-        return null;
-    }
-
-    private void addBitmap(Bitmap bitmap) {
-        if (bitmap != null) {
-            if (mBitmaps.size() == 5) {
-                mBitmaps.removeFirst();
-            }
-            mBitmaps.add(bitmap);
-        }
-    }
-
 }
